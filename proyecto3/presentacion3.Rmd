@@ -1,0 +1,208 @@
+---
+title: "Proyecto 3: Series de Tiempo "
+author: "Tania Bell, Santiago Romero, Andrea Flores"
+date: "7/7/2020"
+output: ioslides_presentation
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+source("arima.R", local = knitr::knit_global())
+library(DT)
+```
+
+## Series de Tiempo 
+
+- Tasa de Desempleo en México 
+- Tasa de Desempleo en EEUU 
+- Datos obtenidos de la página FRED 
+- Desde el 2005 hasta el 2019
+
+# EEUU
+
+## Datos {.smaller}
+```{r datos usa, message = FALSE}
+DT::datatable(usa) %>% 
+DT::formatStyle(columns = colnames(.), fontSize = '80%')
+```
+
+## Visualización de los Datos
+```{r grafica usa, message = FALSE}
+linea(usa, "EEUU")
+```
+
+
+## Outliers
+
+```{r outlier usa}
+box(usa, "EEUU")
+```
+
+## Descomposición
+
+Estacionalidad marcada.
+
+```{r desc usa}
+desc(usa)
+```
+
+## Métodos de referencia y Suavización Exp
+
+```{r metodos usa}
+modelo(usa)
+```
+
+## Accuracy {.smaller}
+
+Con la función de accuracy podemos ver qué tanto se ajustan los modelos o qué tan buenos son los modelos para la serie de tiempo.
+
+```{r acc usa}
+DT::datatable(accuracy(fit(usa)) %>% select(.model,RMSE,MAE,MAPE)) %>% 
+DT::formatStyle(columns = colnames(.), fontSize = '50%')
+```
+
+## Pronóstico
+
+El mejor modelo para nuestra serie de acuerdo con el MAPE es el Holt Winters Amortiguado.
+
+```{r mejor fc usa}
+mejor_fc(usa)
+```
+
+## Pruebas de raíz unitaria
+
+```{r pruebas usa}
+ndiff_usa
+nsdiff_usa
+kpss_usa
+```
+
+## Residuales {.smaller}
+
+```{r resid usa, message = FALSE, warning = FALSE}
+residual_usa(usa)
+```
+
+## Selección de ARIMA {.smaller}
+
+```{r selec arima usa}
+report(fit_usa)
+```
+
+```{r selec 2 arima usa}
+glance(fit_prueba_usa)
+```
+
+## Residuales del modelo seleccionado {.smaller}
+
+```{r resid 2 usa}
+residual_arima_usa(fit_prueba_usa)
+```
+
+## Pronóstico ARIMA
+
+```{r pronostico usa}
+ARIMA_usa
+```
+
+## Interpretaciones
+
+- Se nota una tasa alrededor del 15% en la normalidad, alterada por la crisis del 2008 y recuperándose desde entonces.
+
+- Nuestras pronósticos apuntan a la disminución de la tasa durante el año, complicado por la pandemia actual.
+
+- ARIMA nos da una predicción poco arriba del 10% para este año, con rango entre 5% y 17%.
+
+# México
+
+## Datos {.smaller}
+```{r datos mex, message = FALSE}
+DT::datatable(mex) %>% 
+DT::formatStyle(columns = colnames(.), fontSize = '80%')
+```
+
+## Visualización de los Datos
+```{r grafica mex, message = FALSE}
+linea(mex, "Mexico")
+```
+
+## Outliers
+
+```{r outliers mex}
+box(mex, "México")
+```
+
+## Descomposición
+
+Parece que tiene estacionalidad pero al momento de hacer el ARIMA se demuestra lo contrario.
+
+```{r desc mex}
+desc(mex)
+```
+
+## Métodos de referencia y Suavización Exp
+
+```{r metodos mex}
+modelo(mex)
+```
+
+## Accuracy {.smaller}
+
+Con la función de accuracy podemos ver qué tanto se ajustan los modelos o qué tan buenos son los modelos para la serie de tiempo.
+
+```{r acc mex}
+DT::datatable(accuracy(fit(mex)) %>% select(.model,RMSE,MAPE,MAE)) %>% 
+DT::formatStyle(columns = colnames(.), fontSize = '50%')
+```
+
+## Pronóstico
+
+El mejor modelo para nuestra serie de acuerdo con el MAPE es el Holt Winters Amortiguado.
+
+```{r mejor fc mex}
+mejor_fc(mex)
+```
+
+## Pruebas de raíz unitaria
+
+```{r pruebas mex}
+ndiff_mex
+nsdiff_mex
+kpss_mex
+```
+
+## Residuales {.smaller}
+
+```{r resid mex, message = FALSE}
+residual_mex(mex)
+```
+
+## Selección de ARIMA {.smaller}
+
+```{r selec arima mex}
+report(fit_mex)
+```
+
+```{r selec 2 arima mex}
+glance(fit_prueba_mex)
+```
+
+## Residuales del modelo seleccionado {.smaller}
+
+```{r resid 2 mex}
+residual_arima_mex(fit_prueba_mex)
+```
+
+## Pronóstico ARIMA
+
+```{r pronostico mex}
+ARIMA_mex
+```
+
+## Interpretaciones
+
+- México tiene una menor tasa de desempleo, aún así tuvo un comportamiento muy parecido al de USA en los últimos 15 años.
+
+- Nuestros modelos, en general, predicen una tendencia alcista hasta casi 4%.
+
+- De la misma forma, el modelo ARIMA nos predice una subida ligeramente alcista para este año.

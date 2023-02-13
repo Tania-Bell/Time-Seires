@@ -1,0 +1,366 @@
+---
+title: 'Proyecto 2: Series de Tiempo'
+author: "Tania Bell, Andrea Flores, Santiago Romero"
+date: "7/6/2020"
+output: ioslides_presentation 
+---
+
+```{r librerias, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+library(tidyverse)
+library(lubridate)
+library(tsibble)
+library(GGally)
+library(plotly)
+library(tidyquant)
+library(ggplot2)
+library(scales)
+library(patchwork)
+library("easypackages")
+packages("tidyverse", "tidyquant", "lubridate", "patchwork", "fpp2","fpp3","scales")
+```
+
+```{r import data, message = FALSE}
+temp <- read_csv("temperatures.csv") %>% 
+  mutate(Date = dmy(Date)) %>% 
+  as_tsibble(index = Date)
+```
+
+```{r limpieza de datos}
+full_temp <- fill_gaps(temp, .full = FALSE)
+
+temp <- full_temp %>%
+  group_by_key() %>% 
+  fill_gaps() %>% 
+  tidyr::fill(Temp, .direction = "down")
+```
+
+```{r linea original}
+grafica_1 <- ggplot(data = temp) + 
+  geom_line(mapping = aes(x= Date, 
+                           y = Temp), size = 1) +
+  ggtitle("Temperaturas mínimas Melbourne") +
+  ylab("Grados en Celsius") +
+  xlab("Fecha")
+```
+
+
+```{r boxplot}
+box <- temp %>% 
+  ggplot(aes(x = factor(year(Date)), y = Temp))+
+  xlab("Year") + ggtitle("Temperaturas dividido por año") +
+  geom_boxplot()
+```
+
+
+```{r ajuste mensual}
+# Ajuste Mensual de Calendario 
+
+temp <- temp %>% 
+  index_by(Month = ~ yearmonth(.)) %>% 
+  summarise(AvTemp = mean(Temp))
+
+```
+
+```{r Grafica de Lineas}
+grafica_2 <- ggplot(data = temp) + 
+  geom_line(mapping = aes(x= Month, 
+                           y = AvTemp), size = 1) +
+  ggtitle("Temperaturas promedio mínimas Melbourne") +
+  ylab("Grados en Celsius") +
+  xlab("Fecha")
+
+```
+
+
+
+```{r caja y bigotes}
+# grafica_3 <- ggplot(temp, aes(y=Month)) +
+#   geom_boxplot(outlier.colour="red", outlier.shape=8,
+#                outlier.size=4)+
+#   labs(title="Temperatura Minima Promedio",x= "Melbourne", y = "Grados Celsius")
+
+```
+
+
+```{r desc}
+descomposicion <- temp %>% 
+  model(STL(AvTemp)) %>% 
+  components() %>% 
+  autoplot() + xlab("Fecha") +
+  ggtitle(paste("Descomposición del Promedio de Temperaturas mínimas")) +
+  theme(legend.position = "bottom")
+```
+
+```{r Box Cox}
+lambda <- temp %>%
+  features(AvTemp, features = guerrero) %>%
+  pull(lambda_guerrero)
+```
+
+```{r SES}
+fit <- temp %>%
+  model(ETS(AvTemp ~ error("A"), opt_crit = "mse"))
+
+fc <- fit %>%
+  forecast(h = "1 year")
+
+ses <- fc %>%
+  autoplot(temp, level = NULL) +
+  geom_line(aes(y = .fitted, colour = "Fitted"), data = augment(fit)) +
+  ylab("Grados (Celsius)") + xlab("Fecha")
+```
+
+```{r Holt}
+fit <- temp %>%
+  model(AAN = ETS(AvTemp ~ error("A") + trend("A") + season("N")))
+
+fc <- fit %>% forecast(h = "1 year")
+
+holt <- fc %>%
+  autoplot(temp, level = NULL) +
+  geom_line(aes(y = .fitted, colour = "Fitted"), data = augment(fit)) +
+  ylab("Grados (Celsius)") + xlab("Fecha")
+
+```
+
+```{r damped Holt}
+fit <- temp %>%
+  model(
+    `Holt` = ETS(AvTemp ~ error("A") + trend("A") + season("N")),
+    `Damped Holt` = ETS(AvTemp ~ error("A") + trend("Ad", phi = 0.8) + season("N"))
+  )
+
+fc <- fit %>% forecast(h = "1 year")
+
+damped <-fc %>%
+  autoplot(temp, level = NULL) +
+  ylab("Grados (Celsius)") + xlab("Fecha")
+```
+
+```{r Holt Winters}
+fit <- temp %>%
+ model(
+   additive = ETS(AvTemp ~ error("A") + trend("A") + season("A")),
+   multiplicative = ETS(AvTemp ~ error("M") + trend("A") + season("M"))
+ )
+
+fc <- fit %>% forecast(h = "1 year")
+
+winters <- fc %>%
+ autoplot(temp, level = NULL) + xlab("Fecha") +
+ ylab("Grados (Celsius)") +
+ scale_color_brewer(type = "qual", palette = "Dark2")
+```
+
+```{r Holt Winters Amortiguado}
+fit <- temp %>%
+  model(
+    hw = ETS(AvTemp ~ error("M") + trend("Ad") + season("M"))
+    )
+
+fc <- fit %>% forecast(h = "1 year")
+
+grafica <- fc %>% 
+  autoplot(temp)
+
+fc_zoom <-  grafica + tidyquant::coord_x_date(xlim = c("1990-01-01","1992-01-01")) + ggtitle("") + 
+  theme(legend.position = "none")
+```
+
+```{r Suavizacion exp vs metodos de referencia}
+temp2 <- temp %>% filter_index("1981-01-01" ~ "1989-12-01")
+
+fit <- temp2 %>% 
+  model(
+    Media = MEAN(AvTemp),
+    Naive = NAIVE(AvTemp),
+    `Seasonal naive` = SNAIVE(AvTemp),
+    Drift = RW(AvTemp ~ drift())
+  )
+
+fc <- fit %>% forecast(h = "1 year")
+
+grafica <- fc %>% 
+  autoplot(temp, level = NULL) +
+  xlab("Fecha") + ylab("Grados (Celsius)") +
+  ggtitle("Suavizacion vs metodos temperaturas Melbourne") +
+  guides(colour = guide_legend(title = "Forecast"))
+
+zoom <-  grafica + tidyquant::coord_x_date(xlim = c("1989-01-01","1991-01-01")) + ggtitle("") 
+```
+
+```{r juntos}
+fit <- temp2 %>% 
+  model(
+    `Seasonal naive` = SNAIVE(AvTemp),
+    hwamort = ETS(AvTemp ~ error("M") + trend("Ad") + season("M")),
+    additive = ETS(AvTemp ~ error("A") + trend("A") + season("A")),
+    multiplicative = ETS(AvTemp ~ error("M") + trend("A") + season("M")),
+    `Holt` = ETS(AvTemp ~ error("A") + trend("A") + season("N")),
+    `Damped Holt` = ETS(AvTemp ~ error("A") + trend("Ad") + season("N")),
+    SES = ETS(AvTemp ~ error("A") + trend("N") + season("N"))
+  )
+
+fc <- fit %>% forecast(h = "1 year")
+
+grafica <- fc %>% 
+  autoplot(temp, level = NULL) +
+  xlab("Fecha") + ylab("Grados (Celsius)") +
+  ggtitle("Comparaciones pronósticos temperatura Melbourne") +
+  guides(colour = guide_legend(title = "Forecast"))
+
+zoom2 <-  grafica + tidyquant::coord_x_date(xlim = c("1989-01-01","1991-01-01")) + ggtitle("Comparaciones pronósticos temperatura Melbourne") 
+
+acc <- accuracy(fc, temp) %>% 
+  arrange(RMSE) %>% 
+  select(c = -(.type)) %>% 
+  select(c = -(ME))
+
+fit <- temp2 %>% 
+  model(
+    hwamort = ETS(AvTemp ~ error("M") + trend("Ad") + season("M"))
+    )
+
+fc <- fit %>% forecast(h = "1 year")
+
+grafica_4 <- fc %>% 
+  autoplot(temp, level = NULL) +
+  xlab("Fecha") + ylab("Grados (Celsius)") +
+  ggtitle("Mejor pronóstico temperatura Melbourne") +
+  guides(colour = guide_legend(title = "Forecast"))
+
+zoom3 <-  grafica + tidyquant::coord_x_date(xlim = c("1989-01-01","1991-01-01")) + ggtitle("Mejor pronóstico temperatura Melbourne 1989-1991") 
+
+
+```
+
+
+## Datos
+
+Los datos se tomaron de la página: https://machinelearningmastery.com/time-series-seasonality-with-python/
+
+- Son temperaturas mínimas diarias 
+- Ciudad de Melbourne, Australia (1981-1990) 
+
+## Visualización de los datos
+
+Datos previos a las transformaciones.
+
+```{r grafica linea og}
+grafica_1
+```
+
+## Outliers
+
+Antes de hacer algún ajuste o transformación queríamos identificar los outliers de nuestra serie.
+
+```{r outliers}
+box
+```
+
+## Ajuste de Calendario Mensual {.smaller}
+
+Agrupamos mensualmente los datos sacando el promedio mensual.
+
+```{r datos limpios}
+DT::datatable(temp) %>% 
+DT::formatStyle(columns = colnames(.), fontSize = '80%')
+```
+
+## Temperaturas mínimas Mensuales Melbourne
+
+Datos después del ajuste de calendario.
+
+```{r ventas volumen outliers}
+grafica_2
+```
+
+## Descomposición
+
+Estacionalidad marcada.
+
+```{r}
+descomposicion
+```
+
+## Box-Cox  
+
+Hicimos la transformación Box-Cox para reducir un poco el tamaño de la variación estacional a lo largo de la serie. Lo realizamos con la función de guerrero.
+  
+```{r}
+lambda <- temp %>%
+  features(AvTemp, features = guerrero) %>%
+  pull(lambda_guerrero)
+```
+
+## SES
+
+```{r}
+ses
+```
+
+## Holt
+
+Tendencia a la baja para el final de ese año.
+
+```{r}
+holt
+```
+
+## Damped Holt 
+
+```{r}
+damped
+```
+
+## Holt Winters 
+
+```{r}
+winters
+```
+
+## Holt Winters Amortiguado 
+
+```{r}
+fc_zoom
+```
+
+## Métodos de referencia
+
+```{r}
+zoom
+```
+
+## Comparación de Pronósticos 
+
+Esta comparación nos ayuda a ver la diferencia entre los modelos y cuáles son los que mejor se ajustan.
+
+```{r}
+zoom2 
+```
+
+## Accuracy {.smaller}
+
+Con la función de accuracy podemos ver qué tanto se ajustan los modelos o qué tan buenos son los modelos para la serie de tiempo.
+
+```{r}
+DT::datatable(acc) %>% 
+DT::formatStyle(columns = colnames(.), fontSize = '50%')
+```
+
+
+## Pronóstico
+
+El mejor modelo para nuestra serie de acuerdo con el RMSE es el Holt Winters Amortiguado.
+
+```{r}
+grafica_4
+```
+
+## Interpretaciones
+- Todos los modelos nos ayudaron a tomar una decisión sobre el modelo más adecuado
+- Gracias a la estacionalidad de la serie fue fácil realizar un pronóstico más acertado
+- Variaciones mínimas
+- Predicción bastante buena y válida para la temperatura del año próximo
+

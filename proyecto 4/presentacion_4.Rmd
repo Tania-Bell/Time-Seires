@@ -1,0 +1,115 @@
+---
+title: "Proyecto 3: Series de Tiempo "
+author: "Tania Bell, Santiago Romero, Andrea Flores"
+date: "14/7/2020"
+output: ioslides_presentation
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+source("proyecto_4.R", local = knitr::knit_global())
+library(DT)
+```
+
+## Series de Tiempo 
+
+- Datos de EEUU del 2005 hasta el 2019
+- Desempleo
+- PIB
+- Dinero en circulación
+- Productividad
+- Inflación
+- Datos obtenidos de la página FRED 
+
+## Datos {.smaller}
+
+```{r datos usa, message = FALSE}
+DT::datatable(usa) %>% 
+DT::formatStyle(columns = colnames(.), fontSize = '80%')
+```
+
+## Visualización
+
+```{r linea,  message = FALSE}
+linea
+```
+
+## Descomposición
+
+```{r desc}
+desc_inf
+```
+
+## Residuales previos al ajuste {.smaller}
+
+```{r residuales1, message = FALSE, warning = FALSE}
+resid
+```
+
+## Modelos previos
+
+```{r modelos}
+zm_modelos
+```
+
+## Residuales con ajuste ARIMA
+
+```{r arima resid}
+resid_fit_arima
+```
+
+## Pronóstico ARIMA
+
+```{r arima fc}
+zm_arima
+```
+
+## Correlación entre indicadores
+
+```{r correlacion}
+corr
+```
+## Comparación de AICcs
+ 
+```{r comp}
+acc2
+```
+
+## Ajuste vs Datos originales
+
+```{r reg grafica}
+grafica_fit_reg
+```
+
+## Cambios entre ajuste y datos originales
+
+```{r reg grafica 2}
+linea_puntitos_reg
+```
+
+## Residuales después de regresión lineal
+
+```{r resid reg lin}
+resid_fit_reg
+```
+
+## Regresión múltiple
+
+```{r comp regresiones}
+acc2
+```
+
+## Pronóstico basados en escenarios
+
+```{r opt y pes}
+fc1/fc2
+```
+
+## Pronósticos de predictoras
+
+```{r predic}
+plots
+```
+
+
+
